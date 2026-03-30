@@ -18,5 +18,9 @@ conda activate masters
 Currently, only code for making growth curves from MIC data is available.
 
 ### MIC growth curves
-Make sure the xlsx files with the MIC data are in the `data` folder. And that there is a corresponding CSV file with the sample mapping. Then, navigate to the `mic-analysis` folder and run the `growth-curves.py` script:
+Make sure the xlsx files with the MIC data are in the `data` folder. And that there is a corresponding CSV file with the sample mapping. See the test files included in the data folder. Then run the following command from the root of the repository, replacing the path to the xlsx file with the correct path to your data file:
+
 ```bash
+python scripts/mic-analysis/growth-curves.py --data_path data/Kasper_Test_MIC_20260324.xlsx
+```
+Then the growth curves will be saved in the `outputs/growth_curves` folder, in a subfolder named after the input xlsx file.
