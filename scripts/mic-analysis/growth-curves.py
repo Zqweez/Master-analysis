@@ -89,8 +89,11 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
     save_path = Path(save_path)
 
     # Sort out the SC and GC
-    sc_df = df[df["Content"].str.startswith("Control")]
-    gc_df = df[df["Content"].str.startswith("Negative")]
+    # SC is in A1, B1, etc and GC is in A12, B12, etc
+    sc_df = df[df["Well"].str.match(r"^[A-Z]01$")]
+    gc_df = df[df["Well"].str.match(r"^[A-Z]12$")]
+    print(f"Found {len(sc_df)} rows for SC and {len(gc_df)} rows for GC")
+    print(sc_df.head())
 
     # Make df with only the samples
     sample_df = df.drop(sc_df.index).drop(gc_df.index)
@@ -149,6 +152,9 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
 def main(data_path: str):
     # Load data
     data_path = Path(data_path)
+    if not data_path.exists():
+        raise(f"Data file {data_path} does not exist. Please provide a valid path.")
+
     data_df = load_data(data_path)
 
     save_path = Path("outputs/growth_curves") / data_path.stem
@@ -157,6 +163,6 @@ def main(data_path: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate growth curves from CLARIOstar data")
-    parser.add_argument("--data_path", type=str, default=None, help="Path to the input xlsx file")
+    parser.add_argument("--data_path", type=str, default="data/MIC/2026_03_24_MIC_LMC139_Test.xlsx", help="Path to the input xlsx file")
     args = parser.parse_args()
     main(args.data_path)
