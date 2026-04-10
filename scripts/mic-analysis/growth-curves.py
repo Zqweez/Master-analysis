@@ -32,10 +32,38 @@ def load_data(file_path: str):
 
     return df
 
-def make_plot(ax, rows: pd.DataFrame, sample_id: str, mapping_dict: dict, conc_dict: dict):
+def extract_sample_controls_df(df: pd.DataFrame, sample_ids: list, mapping_dict: dict):
+    if not sample_ids:
+        return pd.DataFrame()
 
+    max_sample_row = max(sample_ids)
+    control_row_ord = ord(max_sample_row) + 1
+
+    # If samples already use row H, there is no next row for per-sample controls.
+    if control_row_ord > ord("H"):
+        return pd.DataFrame()
+
+    control_row = chr(control_row_ord)
+    control_well_to_sample = {
+        f"{control_row}{idx + 2:02d}": sample_id
+        for idx, sample_id in enumerate(sample_ids)
+    }
+
+    controls_df = df[df["Well"].isin(control_well_to_sample.keys())].copy()
+    if controls_df.empty:
+        return controls_df
+
+    controls_df["_sample_id"] = controls_df["Well"].map(control_well_to_sample)
+    controls_df["_sample_id"] = pd.Categorical(controls_df["_sample_id"], categories=sample_ids, ordered=True)
+    controls_df = controls_df.sort_values("_sample_id")
+    controls_df["Content"] = controls_df["_sample_id"].map(lambda sid: f"{mapping_dict.get(sid, sid)} control")
+    controls_df = controls_df.drop(columns=["_sample_id"])
+
+    return controls_df
+
+def make_plot(ax, rows: pd.DataFrame, sample_id: str, mapping_dict: dict, conc_dict: dict):
     # Only make plots when there are 10 rows
-    if len(rows) < 8:
+    if len(rows) < 8 and sample_id != "SampleControls":
         return False
 
     rows = rows.copy()
@@ -50,7 +78,7 @@ def make_plot(ax, rows: pd.DataFrame, sample_id: str, mapping_dict: dict, conc_d
     timestamps = list(rows.columns[2:])
 
     if conc_range is not None:
-        palette = sns.color_palette("viridis", n_colors=len(rows))
+        palette = sns.color_palette("Spectral", n_colors=len(rows))
         for idx, (_, row) in enumerate(rows.iterrows()):
             y_values = pd.to_numeric(row[timestamps], errors="coerce")
             ax.plot(
@@ -90,25 +118,36 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
 
     # Sort out the SC and GC
     # SC is in A1, B1, etc and GC is in A12, B12, etc
-    sc_df = df[df["Well"].str.match(r"^[A-Z]01$")]
-    gc_df = df[df["Well"].str.match(r"^[A-Z]12$")]
-    print(f"Found {len(sc_df)} rows for SC and {len(gc_df)} rows for GC")
-    print(sc_df.head())
+    sc_df = df[df["Well"].str.match(r"^[A-Z]01$")].copy()
+    gc_df = df[df["Well"].str.match(r"^[A-Z]12$")].copy()
 
-    # Make df with only the samples
-    sample_df = df.drop(sc_df.index).drop(gc_df.index)
-    sample_ids = sample_df["Well"].str[0].unique()
+    sc_df["Content"] = [f"SC{i+1}" for i in range(len(sc_df))]
+    gc_df["Content"] = [f"GC{i+1}" for i in range(len(gc_df))]
 
     # Load sample mapping mapping well id to actual sample name
     mapping_df = pd.read_csv(sample_mapping)
+    mapping_df["Well"] = mapping_df["Well"].astype(str).str.strip().str.upper()
+    sample_ids = mapping_df["Well"].tolist()
     mapping_dict = dict(zip(mapping_df["Well"], mapping_df["Sample"]))
     conc_dict = dict(zip(mapping_df["Well"], mapping_df["Max_conc"]))
-    mapping_dict.update({"Control": "Sterile Control", "Negative": "Growth Control"})
+    mapping_dict.update({
+        "Control": "Sterile Control",
+        "Negative": "Growth Control",
+        "SampleControls": "Sample negative controls",
+    })
+
+    # Make df with only the samples
+    sample_df = df.drop(sc_df.index).drop(gc_df.index)
+
+    sample_controls_df = extract_sample_controls_df(df, sample_ids, mapping_dict)
 
     plot_data = [
         ("Control", sc_df),
         ("Negative", gc_df),
     ]
+
+    if not sample_controls_df.empty:
+        plot_data.append(("SampleControls", sample_controls_df))
     
     # Make one plot for each sample, overlaying all rows where the first letter of the well is the same
     # Timestamps are the columns starting from the 3rd column, so we get them by df.columns[2:]
@@ -132,7 +171,7 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
 
     # Combined figure with 3 columns and as many rows as needed
     if valid_plot_data:
-        n_cols = 3
+        n_cols = 4 if len(valid_plot_data) % 4 == 0 or len(valid_plot_data) > 9 else 3
         n_rows = (len(valid_plot_data) + n_cols - 1) // n_cols
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows), squeeze=False)
         axes_flat = axes.flatten()
@@ -147,6 +186,13 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
         combined_save_file = save_path / "all_growth_curves_subfigures.pdf"
         fig.savefig(combined_save_file, bbox_inches="tight")
         plt.close(fig)
+
+def plot_all_data():
+    # Get all data paths
+    xlsx_paths = Path("data/").rglob("*.xlsx")
+    for path in xlsx_paths:
+        print(f"Running {path.stem}...")
+        main(path)
 
 
 def main(data_path: str):
@@ -164,5 +210,9 @@ def main(data_path: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate growth curves from CLARIOstar data")
     parser.add_argument("--data_path", type=str, default="data/MIC/2026_03_24_MIC_LMC139_Test.xlsx", help="Path to the input xlsx file")
+    parser.add_argument("--run_all", action="store_true")
     args = parser.parse_args()
-    main(args.data_path)
+    if args.run_all:
+        plot_all_data()
+    else:
+        main(args.data_path)
