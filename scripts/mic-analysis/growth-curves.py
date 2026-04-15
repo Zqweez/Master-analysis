@@ -61,7 +61,7 @@ def extract_sample_controls_df(df: pd.DataFrame, sample_ids: list, mapping_dict:
 
     return controls_df
 
-def make_plot(ax, rows: pd.DataFrame, sample_id: str, mapping_dict: dict, conc_dict: dict):
+def make_plot(ax, rows: pd.DataFrame, sample_id: str, mapping_dict: dict, conc_dict: dict, shared_y_max: float = None):
     # Only make plots when there are 10 rows
     if len(rows) < 8 and sample_id != "SampleControls":
         return False
@@ -106,6 +106,8 @@ def make_plot(ax, rows: pd.DataFrame, sample_id: str, mapping_dict: dict, conc_d
     ax.set_xlabel("Time (hours)")
     ax.set_ylabel("OD")
     ax.legend(fontsize=8)
+    if shared_y_max is not None:
+        ax.set_ylim(0, shared_y_max)
 
     return True
 
@@ -156,12 +158,16 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
         sample_rows = sample_df[sample_df["Well"].str.startswith(sample_id)]
         plot_data.append((sample_id, sample_rows))
 
+    # Max value across all rows and columns in df
+    df_max = df.max(numeric_only=True).max()
+    shared_y_max = df_max * 1.05
+
     # Individual plots
     save_path.mkdir(parents=True, exist_ok=True)
     valid_plot_data = []
     for sample_id, rows in plot_data:
         fig, ax = plt.subplots(figsize=(10, 6))
-        was_plotted = make_plot(ax, rows, sample_id, mapping_dict, conc_dict)
+        was_plotted = make_plot(ax, rows, sample_id, mapping_dict, conc_dict, shared_y_max=shared_y_max)
         if was_plotted:
             fig.tight_layout()
             save_file = save_path / f"{mapping_dict.get(sample_id, sample_id)}_growth_curve.pdf"
@@ -177,7 +183,7 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
         axes_flat = axes.flatten()
 
         for idx, (sample_id, rows) in enumerate(valid_plot_data):
-            make_plot(axes_flat[idx], rows, sample_id, mapping_dict, conc_dict)
+            make_plot(axes_flat[idx], rows, sample_id, mapping_dict, conc_dict, shared_y_max=shared_y_max)
 
         for idx in range(len(valid_plot_data), len(axes_flat)):
             axes_flat[idx].set_visible(False)
