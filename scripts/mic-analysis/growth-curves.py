@@ -61,7 +61,15 @@ def extract_sample_controls_df(df: pd.DataFrame, sample_ids: list, mapping_dict:
 
     return controls_df
 
-def make_plot(ax, rows: pd.DataFrame, sample_id: str, mapping_dict: dict, conc_dict: dict, shared_y_max: float = None):
+def make_plot(
+    ax,
+    rows: pd.DataFrame,
+    sample_id: str,
+    mapping_dict: dict,
+    conc_dict: dict,
+    shared_y_max: float = None,
+    sterile_blank: pd.Series = None,
+):
     # Only make plots when there are 10 rows
     if len(rows) < 8 and sample_id != "SampleControls":
         return False
@@ -81,6 +89,8 @@ def make_plot(ax, rows: pd.DataFrame, sample_id: str, mapping_dict: dict, conc_d
         palette = sns.color_palette("Spectral", n_colors=len(rows))
         for idx, (_, row) in enumerate(rows.iterrows()):
             y_values = pd.to_numeric(row[timestamps], errors="coerce")
+            if sterile_blank is not None:
+                y_values = y_values - sterile_blank
             ax.plot(
                 timestamps,
                 y_values,
@@ -92,6 +102,8 @@ def make_plot(ax, rows: pd.DataFrame, sample_id: str, mapping_dict: dict, conc_d
         palette = sns.color_palette(palette_name, n_colors=len(rows))
         for idx, (_, row) in enumerate(rows.iterrows()):
             y_values = pd.to_numeric(row[timestamps], errors="coerce")
+            if sterile_blank is not None:
+                y_values = y_values - sterile_blank
             ax.plot(
                 timestamps,
                 y_values,
@@ -107,11 +119,17 @@ def make_plot(ax, rows: pd.DataFrame, sample_id: str, mapping_dict: dict, conc_d
     ax.set_ylabel("OD")
     ax.legend(fontsize=8)
     if shared_y_max is not None:
-        ax.set_ylim(0, shared_y_max)
+        y_min = 0 if sterile_blank is None else -0.25
+        ax.set_ylim(y_min, shared_y_max)
 
     return True
 
-def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves", sample_mapping: str = None):
+def make_growth_curves(
+    df: pd.DataFrame,
+    save_path: str = "outputs/growth_curves",
+    sample_mapping: str = None,
+    subtract_sterile_blank: bool = False,
+):
     """
     We want to make one figure for each row, corresponding to one compound tested
     But we want to also make plots for the controls
@@ -126,6 +144,15 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
     sc_df["Content"] = [f"SC{i+1}" for i in range(len(sc_df))]
     gc_df["Content"] = [f"GC{i+1}" for i in range(len(gc_df))]
 
+    timestamps = list(df.columns[2:])
+    sterile_blank = None
+    if subtract_sterile_blank:
+        if sc_df.empty:
+            print("Warning: no sterile control wells found; skipping blank subtraction.")
+        else:
+            sterile_blank = sc_df[timestamps].apply(pd.to_numeric, errors="coerce").mean(axis=0)
+            sterile_blank = sterile_blank.iloc[0]
+            
     # Load sample mapping mapping well id to actual sample name
     mapping_df = pd.read_csv(sample_mapping)
     mapping_df["Well"] = mapping_df["Well"].astype(str).str.strip().str.upper()
@@ -167,7 +194,15 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
     valid_plot_data = []
     for sample_id, rows in plot_data:
         fig, ax = plt.subplots(figsize=(10, 6))
-        was_plotted = make_plot(ax, rows, sample_id, mapping_dict, conc_dict, shared_y_max=shared_y_max)
+        was_plotted = make_plot(
+            ax,
+            rows,
+            sample_id,
+            mapping_dict,
+            conc_dict,
+            shared_y_max=shared_y_max,
+            sterile_blank=sterile_blank,
+        )
         if was_plotted:
             fig.tight_layout()
             save_file = save_path / f"{mapping_dict.get(sample_id, sample_id)}_growth_curve.pdf"
@@ -183,7 +218,15 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
         axes_flat = axes.flatten()
 
         for idx, (sample_id, rows) in enumerate(valid_plot_data):
-            make_plot(axes_flat[idx], rows, sample_id, mapping_dict, conc_dict, shared_y_max=shared_y_max)
+            make_plot(
+                axes_flat[idx],
+                rows,
+                sample_id,
+                mapping_dict,
+                conc_dict,
+                shared_y_max=shared_y_max,
+                sterile_blank=sterile_blank,
+            )
 
         for idx in range(len(valid_plot_data), len(axes_flat)):
             axes_flat[idx].set_visible(False)
@@ -193,15 +236,15 @@ def make_growth_curves(df: pd.DataFrame, save_path: str = "outputs/growth_curves
         fig.savefig(combined_save_file, bbox_inches="tight")
         plt.close(fig)
 
-def plot_all_data():
+def plot_all_data(subtract_sterile_blank: bool = False):
     # Get all data paths
     xlsx_paths = Path("data/").rglob("*.xlsx")
     for path in xlsx_paths:
         print(f"Running {path.stem}...")
-        main(path)
+        main(path, subtract_sterile_blank=subtract_sterile_blank)
 
 
-def main(data_path: str):
+def main(data_path: str, subtract_sterile_blank: bool = False):
     # Load data
     data_path = Path(data_path)
     if not data_path.exists():
@@ -211,14 +254,20 @@ def main(data_path: str):
 
     save_path = Path("outputs/growth_curves") / data_path.stem
     sample_mapping = data_path.with_suffix(".csv")
-    make_growth_curves(data_df, save_path, sample_mapping)
+    make_growth_curves(
+        data_df,
+        save_path,
+        sample_mapping,
+        subtract_sterile_blank=subtract_sterile_blank,
+    )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate growth curves from CLARIOstar data")
     parser.add_argument("--data_path", type=str, default="data/MIC/2026_03_24_MIC_LMC139_Test.xlsx", help="Path to the input xlsx file")
     parser.add_argument("--run_all", action="store_true")
+    parser.add_argument("--blank", action="store_true", help="Blank with averaged sterile control",)
     args = parser.parse_args()
     if args.run_all:
-        plot_all_data()
+        plot_all_data(subtract_sterile_blank=args.blank)
     else:
-        main(args.data_path)
+        main(args.data_path, subtract_sterile_blank=args.blank)
