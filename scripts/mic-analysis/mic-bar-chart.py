@@ -18,7 +18,7 @@ def _sort_sample_label(label: str):
     return (1, str(label))
 
 
-def _parse_mic_value(value, censor_floor: float = 256.0) -> Tuple[float, bool, float]:
+def _parse_mic_value(value) -> Tuple[float, bool, float]:
     """
     Parse MIC values while tracking censored values written as '>X'.
     Censored values are stored as X for plotting and statistics.
@@ -30,7 +30,7 @@ def _parse_mic_value(value, censor_floor: float = 256.0) -> Tuple[float, bool, f
     if value_str.startswith(">"):
         threshold_value = pd.to_numeric(value_str[1:].strip(), errors="coerce")
         if pd.isna(threshold_value):
-            threshold_value = float(censor_floor)
+            threshold_value = 256.0
         return float(threshold_value), True, float(threshold_value)
 
     numeric_value = pd.to_numeric(value_str, errors="coerce")
@@ -39,20 +39,13 @@ def _parse_mic_value(value, censor_floor: float = 256.0) -> Tuple[float, bool, f
     return float(numeric_value), False, np.nan
 
 
-def load_data(file_path: str, censor_floor: float = 256.0):
+def load_data(file_path: str):
     df = pd.read_csv(file_path)
-    columns_lower = {col.lower().strip(): col for col in df.columns}
-    if "sample" not in columns_lower or "mic" not in columns_lower:
-        raise ValueError("CSV must contain columns named 'Sample' and 'mic'.")
-
-    sample_col = columns_lower["sample"]
-    mic_col = columns_lower["mic"]
-
-    data = df[[sample_col, mic_col]].copy()
+    data = df[["sample", "mic"]].copy()
     data.columns = ["Sample", "MicRaw"]
     data["Sample"] = data["Sample"].astype(str).str.strip()
 
-    parsed = data["MicRaw"].apply(lambda value: _parse_mic_value(value, censor_floor=censor_floor))
+    parsed = data["MicRaw"].apply(lambda value: _parse_mic_value(value))
     data[["MIC", "IsCensored", "CensorThreshold"]] = pd.DataFrame(parsed.tolist(), index=data.index)
     data = data.dropna(subset=["MIC"]).reset_index(drop=True)
     return data
@@ -73,14 +66,9 @@ def summarize_data(data: pd.DataFrame):
         .reset_index(drop=True)
     )
     stats_df["StdMIC"] = stats_df["StdMIC"].fillna(0.0)
+
+    stats_df.to_csv("outputs/mic/summary_statistics.csv", index=False)
     return stats_df
-
-
-def _point_offsets(n_points: int, spread: float = 0.14):
-    if n_points <= 1:
-        return np.array([0.0])
-    return np.linspace(-spread, spread, n_points)
-
 
 def _powers_of_two_ticks(min_value: float, max_value: float):
     min_exp = int(np.floor(np.log2(min_value)))
@@ -91,20 +79,15 @@ def _powers_of_two_ticks(min_value: float, max_value: float):
     return tick_positions, tick_labels
 
 
-def make_plot(data: pd.DataFrame, title: str):
+def make_plot(data: pd.DataFrame, output_file: Path):
     stats_df = summarize_data(data)
-    if stats_df.empty:
-        raise ValueError("No valid MIC values found to plot.")
-
-    if (data["MIC"] <= 0).any():
-        raise ValueError("MIC values must be positive to use a log2 y-axis.")
 
     n_samples = len(stats_df)
     fig_width = max(7.0, 0.95 * n_samples)
     fig, ax = plt.subplots(figsize=(fig_width, 5.5))
 
     x_values = np.arange(n_samples)
-    bar_color = sns.color_palette("Spectral", n_colors=8)[2]
+    bar_color = sns.color_palette("Spectral", n_colors=8)
     edge_color = "#2F2F2F"
 
     min_mic = float(data.loc[data["MIC"] > 0, "MIC"].min())
@@ -137,7 +120,7 @@ def make_plot(data: pd.DataFrame, title: str):
 
     for idx, sample_name in enumerate(stats_df["Sample"]):
         sample_rows = data[data["Sample"] == sample_name]
-        offsets = _point_offsets(len(sample_rows))
+        offsets = np.linspace(-0.14, 0.14, len(sample_rows))
 
         for offset, row in zip(offsets, sample_rows.itertuples(index=False)):
             mic_value = float(row.MIC)
@@ -156,9 +139,11 @@ def make_plot(data: pd.DataFrame, title: str):
                 zorder=3,
             )
 
+        # Set hash pattern for bars with censored values
         if bool(stats_df.loc[idx, "AnyCensored"]):
             bars[idx].set_hatch("///")
 
+        # Add text annotation for fully censored samples clearly showing that the mean is above the theshold
         if bool(stats_df.loc[idx, "AllCensored"]):
             censor_level = stats_df.loc[idx, "MaxCensorThreshold"]
             ax.text(
@@ -186,52 +171,36 @@ def make_plot(data: pd.DataFrame, title: str):
     ax.set_xticks(x_values)
     ax.set_xticklabels(stats_df["Sample"])
     ax.set_xlabel("OMPP")
-    ax.set_ylabel("MIC (log2 scale)")
-    ax.set_title(title)
+    ax.set_ylabel("MIC μg/ml")
+    ax.set_title("MIC for each OMPP", fontdict={"fontsize": 12})
     ax.grid(axis="y", alpha=0.2)
     ax.set_axisbelow(True)
-    sns.despine(ax=ax)
 
     fig.tight_layout()
-    return fig
+    fig.savefig(output_file, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved figure to {output_file}")
 
 
-def main(
-    data_path: str = "data/MIC/ompp_mic.csv",
-    output_path: str = None,
-    title: str = "MIC per OMPP",
-    censor_floor: float = 256.0,
-):
+def main(data_path: str = "data/MIC/ompp_mic.csv"):
     data_path = Path(data_path)
     if not data_path.exists():
         raise FileNotFoundError(f"Data file {data_path} does not exist")
 
-    if output_path is None:
-        output_file = Path("outputs/growth-aggregated/MIC") / f"{data_path.stem}_bar_chart.pdf"
-    else:
-        output_file = Path(output_path)
-
-    data_df = load_data(str(data_path), censor_floor=censor_floor)
-    fig = make_plot(data_df, title=title)
-
+    output_file = Path("outputs/mic") / f"{data_path.stem}_bar_chart.pdf"
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_file, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"Saved figure to {output_file}")
+
+    data_df = load_data(str(data_path))
+    make_plot(data_df, output_file)
+
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create MIC bar chart with mean +/- std and replicate points")
     parser.add_argument("--data_path", type=str, default="data/MIC/ompp_mic.csv", help="Path to input CSV containing Sample and mic")
-    parser.add_argument("--output_path", type=str, default=None, help="Optional explicit output file path")
-    parser.add_argument("--title", type=str, default="MIC per OMPP", help="Plot title")
-    parser.add_argument("--censor_floor", type=float, default=256.0, help="Fallback threshold for malformed >X entries")
     args = parser.parse_args()
 
-    sns.set_theme(style="whitegrid", context="paper")
+    # sns.set_theme(style="whitegrid", context="paper")
     main(
         data_path=args.data_path,
-        output_path=args.output_path,
-        title=args.title,
-        censor_floor=args.censor_floor,
     )

@@ -22,21 +22,16 @@ def load_data(data_path: Path | str):
     df = pd.read_excel(data_path)
     df.columns = [str(col).strip() for col in df.columns]
 
-    ompp_col = next((col for col in df.columns if col.lower() == "ompp"), None)
-    if ompp_col is None:
-        raise ValueError("Input file must contain an 'ompp' column.")
-
-    rep_cols = [col for col in df.columns if col != ompp_col]
+    rep_cols = [col for col in df.columns if col != "ompp"]
     if not rep_cols:
         raise ValueError("Input file must contain at least one biological replicate column.")
 
     tech_df = df.melt(
-        id_vars=[ompp_col],
+        id_vars=["ompp"],
         value_vars=rep_cols,
         var_name="BioRep",
         value_name="Value",
     )
-    tech_df = tech_df.rename(columns={ompp_col: "ompp"})
     tech_df["ompp"] = tech_df["ompp"].astype(str).str.strip()
     tech_df["Value"] = pd.to_numeric(tech_df["Value"], errors="coerce")
     tech_df = tech_df.dropna(subset=["ompp", "Value"]).reset_index(drop=True)
@@ -45,6 +40,8 @@ def load_data(data_path: Path | str):
     tech_df["Value"] = tech_df["Value"] * 100.0
     tech_df["TechnicalRep"] = tech_df.groupby(["ompp", "BioRep"]).cumcount() + 1
 
+    tech_df.to_csv("outputs/npn/technical_replicates.csv", index=False)
+
     bio_df = (
         tech_df.groupby(["ompp", "BioRep"], as_index=False)
         .agg(
@@ -52,6 +49,8 @@ def load_data(data_path: Path | str):
             NTechnical=("Value", "count"),
         )
     )
+
+    bio_df.to_csv("outputs/npn/biological_replicates.csv", index=False)
 
     stats_df = (
         bio_df.groupby("ompp", as_index=False)
@@ -64,6 +63,8 @@ def load_data(data_path: Path | str):
         .reset_index(drop=True)
     )
     stats_df["std"] = stats_df["std"].fillna(0.0)
+
+    stats_df.to_csv("outputs/npn/summary_statistics.csv", index=False)
 
     return tech_df, bio_df, stats_df
 
@@ -110,6 +111,8 @@ def make_barchart(
             ompp_tech = tech_df[(tech_df["ompp"] == ompp) & (tech_df["BioRep"] == bio_row.BioRep)]
             tech_offsets = _point_offsets(len(ompp_tech), spread=0.035)
 
+            """
+            # For plotting each technical replicate as a separate point as well
             for tech_offset, tech_row in zip(tech_offsets, ompp_tech.itertuples(index=False)):
                 ax.scatter(
                     x_bio + tech_offset,
@@ -120,6 +123,7 @@ def make_barchart(
                     linewidths=0,
                     zorder=3,
                 )
+            """
 
             ax.scatter(
                 x_bio,
