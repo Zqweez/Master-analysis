@@ -78,8 +78,8 @@ def make_barchart(
         raise ValueError("No valid NPN values found to plot.")
 
     n_samples = len(stats_df)
-    fig_width = max(7.0, 0.95 * n_samples)
-    fig, ax = plt.subplots(figsize=(fig_width, 5.5))
+    fig_width = max(5.0, 1 * n_samples)
+    fig, ax = plt.subplots(figsize=(fig_width, 5))
 
     x_values = np.arange(n_samples)
     mean_vals = stats_df["mean"].to_numpy(dtype=float)
@@ -138,11 +138,13 @@ def make_barchart(
     ax.set_ylim(-10, 100)
     ax.set_xticks(x_values)
     ax.set_xticklabels(stats_df["ompp"])
-    ax.set_xlabel("OMPP")
-    ax.set_ylabel("% NPN")
-    ax.set_title("NPN for each OMPP", fontdict={"fontsize": 12})
+    ax.set_xlabel("OMPP", fontsize=14)
+    ax.set_ylabel("% NPN", fontsize=14)
     ax.grid(axis="y", alpha=0.2)
     ax.set_axisbelow(True)
+
+    fig.suptitle("NPN for each OMPP", fontsize=14, y=1)
+
 
     fig.tight_layout()
     output_path = Path("outputs/npn/bar-chart.pdf")

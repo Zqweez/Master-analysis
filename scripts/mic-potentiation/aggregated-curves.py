@@ -170,9 +170,9 @@ def make_plot(ax, sample_stats: pd.DataFrame, sample_name: str, shared_y_max: fl
 
 	ax.set_xticks(hour_tick_positions if hour_tick_positions else tick_positions)
 	ax.set_xticklabels(hour_tick_labels if hour_tick_labels else time_info["TimeLabel"].tolist(), fontsize=8)
-	ax.set_title(sample_name)
-	ax.set_xlabel("Time (hours)")
-	ax.set_ylabel("OD")
+	ax.set_title(sample_name, fontsize=14)
+	ax.set_xlabel("Time (hours)", fontsize=12)
+	ax.set_ylabel("OD", fontsize=12)
 	ax.legend(title="Concentration", fontsize=8, loc="upper left")
 	ax.grid(alpha=0.2)
 
@@ -218,7 +218,7 @@ def make_group_aggregated_growth_curves(group_long_df: pd.DataFrame, save_path: 
 	shared_y_max = (stats_df["MeanOD"] + stats_df["StdOD"]).max() * 1.05
 
 	for sample_name, sample_stats in stats_df.groupby("Sample"):
-		fig, ax = plt.subplots(figsize=(10, 6))
+		fig, ax = plt.subplots(figsize=(8, 4.6))
 		was_plotted = make_plot(ax, sample_stats, sample_name, shared_y_max=shared_y_max)
 		if was_plotted:
 			fig.tight_layout()

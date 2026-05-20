@@ -2,6 +2,7 @@
 !data/MIC/2026_03_24_MIC_LMC139_Test.csv
 
 data/
+additional_data/
 outputs/
 
 .DS_Store

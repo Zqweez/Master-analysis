@@ -25,6 +25,7 @@ def _timestamps_to_hours(timestamps):
     return hour_tick_positions, hour_tick_labels
 
 def load_data(file_path: str):
+    print(f"Loading data from {file_path}...")
     df = pd.read_excel(file_path, "Table All Cycles", skiprows=12)
     # Rename column 0 to Well and column 1 to Content
     df.rename(columns={df.columns[0]: "Well", df.columns[1]: "Content"}, inplace=True)
@@ -238,7 +239,9 @@ def make_growth_curves(
 
 def plot_all_data(subtract_sterile_blank: bool = False):
     # Get all data paths
-    xlsx_paths = Path("data/").rglob("*.xlsx")
+    mic_xlsx_paths = Path("data/MIC").rglob("*.xlsx")
+    pot_xlsx_paths = Path("data/Potentiation").rglob("*.xlsx")
+    xlsx_paths = list(mic_xlsx_paths) + list(pot_xlsx_paths)
     for path in xlsx_paths:
         print(f"Running {path.stem}...")
         main(path, subtract_sterile_blank=subtract_sterile_blank)

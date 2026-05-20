@@ -83,8 +83,8 @@ def make_plot(data: pd.DataFrame, output_file: Path):
     stats_df = summarize_data(data)
 
     n_samples = len(stats_df)
-    fig_width = max(7.0, 0.95 * n_samples)
-    fig, ax = plt.subplots(figsize=(fig_width, 5.5))
+    fig_width = max(5.0, 1 * n_samples)
+    fig, ax = plt.subplots(figsize=(fig_width, 5))
 
     x_values = np.arange(n_samples)
     bar_color = sns.color_palette("Spectral", n_colors=8)
@@ -170,11 +170,12 @@ def make_plot(data: pd.DataFrame, output_file: Path):
     ax.set_yticklabels(tick_labels)
     ax.set_xticks(x_values)
     ax.set_xticklabels(stats_df["Sample"])
-    ax.set_xlabel("OMPP")
-    ax.set_ylabel("MIC μg/ml")
-    ax.set_title("MIC for each OMPP", fontdict={"fontsize": 12})
+    ax.set_xlabel("OMPP", fontsize=14)
+    ax.set_ylabel("MIC μg/ml", fontsize=14)
     ax.grid(axis="y", alpha=0.2)
     ax.set_axisbelow(True)
+
+    fig.suptitle("MIC for each OMPP", fontsize=14, y=1)
 
     fig.tight_layout()
     fig.savefig(output_file, bbox_inches="tight")

@@ -7,6 +7,7 @@ This repository contains the code used for the in vitro analysis and visualizati
 Conda has been used to manage the Python environment for this project. The enviroment is combined with the in silico part of the project, such that the same environment can be used for both, resulting in a larger environment than necessary for this in vitro analysis.
 
 To set up the environment, first install Conda if you haven't already. Then, navigate to the root directory of this repository and run the following command, naming the environment using the `-n` flag, for example `masters`:
+
 ```bash
 conda env create -f environment.yml -n masters
 
@@ -15,12 +16,19 @@ conda activate masters
 ```
 
 ## How to run the code
-Currently, only code for making growth curves from MIC data is available.
+Scripts are grouped by experiment type. Inputs live under `data/` and outputs are written to `outputs/`.
 
-### MIC growth curves
-Make sure the xlsx files with the MIC data are in the `data` folder. And that there is a corresponding CSV file with the sample mapping. See the test files included in the data folder. Then run the following command from the root of the repository, replacing the path to the xlsx file with the correct path to your data file:
+### MIC and Potentiation
+- `scripts/mic-potentiation/growth-curves.py`: creates growth curves per xlsx file (one output folder per file, with one curve per sample). Each xlsx needs a matching CSV mapping file with the same name, see test file in `data/`.
+- `scripts/mic-potentiation/aggregated-curves.py`: aggregates all MIC or potentiation xlsx files in `data/MIC` and `data/Potentiation` into mean +/- std curves per peptide.
+- `scripts/mic-potentiation/mic-bar-chart.py`: MIC bar charts from a MIC summary spreadsheet.
+- `scripts/mic-potentiation/pot-bar-chart.py`: potentiation bar charts from a potentiation summary spreadsheet.
 
+Example:
 ```bash
-python scripts/mic-analysis/growth-curves.py --data_path data/Kasper_Test_MIC_20260324.xlsx
+python scripts/mic-potentiation/growth-curves.py --data_path data/MIC/2026_03_24_MIC_LMC139_Test.xlsx
 ```
-Then the growth curves will be saved in the `outputs/growth_curves` folder, in a subfolder named after the input xlsx file.
+
+### NPN
+- `scripts/npn/npn-analysis.py`: bar charts from the NPN summary spreadsheet.
+- `scripts/npn/npn-aggregated-curves.py`: fluorescence curves (mean +/- std) aggregated per sample for technical replicates from each xlsx file.
