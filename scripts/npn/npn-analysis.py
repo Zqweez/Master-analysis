@@ -139,7 +139,7 @@ def make_barchart(
     ax.set_xticks(x_values)
     ax.set_xticklabels(stats_df["ompp"])
     ax.set_xlabel("OMPP", fontsize=14)
-    ax.set_ylabel("% NPN", fontsize=14)
+    ax.set_ylabel("NPN Uptake (%)", fontsize=14)
     ax.grid(axis="y", alpha=0.2)
     ax.set_axisbelow(True)
 
