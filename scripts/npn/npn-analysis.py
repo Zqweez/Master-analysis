@@ -128,10 +128,10 @@ def make_barchart(
             ax.scatter(
                 x_bio,
                 float(bio_row.BioMean),
-                s=52,
-                color="#3F3F3F",
-                edgecolors="white",
-                linewidths=0.7,
+                s=38,
+                color="#8C8C8C",
+                edgecolors="#666666",
+                linewidths=0.5,
                 zorder=4,
             )
 
@@ -143,13 +143,13 @@ def make_barchart(
     ax.grid(axis="y", alpha=0.2)
     ax.set_axisbelow(True)
 
-    fig.suptitle("NPN for each OMPP", fontsize=14, y=1)
+    fig.suptitle("", fontsize=14, y=1) # NPN for each OMPP
 
 
     fig.tight_layout()
     output_path = Path("outputs/npn/bar-chart.pdf")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, bbox_inches="tight")
+    fig.savefig(output_path, bbox_inches="tight", transparent=True)
     plt.close(fig)
 
 

@@ -222,7 +222,7 @@ def _plot_file(stats_df: pd.DataFrame, output_path: Path, title: str):
 	fig.tight_layout()
 
 	output_path.parent.mkdir(parents=True, exist_ok=True)
-	fig.savefig(output_path, bbox_inches="tight")
+	fig.savefig(output_path, bbox_inches="tight", transparent=True)
 	plt.close(fig)
 
 

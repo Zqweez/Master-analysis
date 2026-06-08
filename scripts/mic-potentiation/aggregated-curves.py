@@ -223,7 +223,7 @@ def make_group_aggregated_growth_curves(group_long_df: pd.DataFrame, save_path: 
 		if was_plotted:
 			fig.tight_layout()
 			save_file = save_path / f"{_sanitize_filename(sample_name)}_aggregated_growth_curve.pdf"
-			fig.savefig(save_file, bbox_inches="tight")
+			fig.savefig(save_file, bbox_inches="tight", transparent=True)
 		plt.close(fig)
 
 

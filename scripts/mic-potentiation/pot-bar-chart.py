@@ -189,7 +189,7 @@ def make_plot(data: pd.DataFrame, output_file: Path, reference_mic: float):
     fig.text(0.5, 0, f"Note: OMPP 53 had a constant concentration of 2 μg/ml", ha="center", va="bottom", fontsize=11, color="#3A3A3A")
 
     fig.tight_layout()
-    fig.savefig(output_file, bbox_inches="tight")
+    fig.savefig(output_file, bbox_inches="tight", transparent=True)
     plt.close(fig)
     print(f"Saved figure to {output_file}")
 

@@ -178,7 +178,7 @@ def make_plot(data: pd.DataFrame, output_file: Path):
     fig.suptitle("MIC for each OMPP", fontsize=14, y=1)
 
     fig.tight_layout()
-    fig.savefig(output_file, bbox_inches="tight")
+    fig.savefig(output_file, bbox_inches="tight", transparent=True)
     plt.close(fig)
     print(f"Saved figure to {output_file}")
 

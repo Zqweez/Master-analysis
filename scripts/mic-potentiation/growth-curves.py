@@ -215,7 +215,7 @@ def make_growth_curves(
     if valid_plot_data:
         n_cols = 4 if len(valid_plot_data) % 4 == 0 or len(valid_plot_data) > 9 else 3
         n_rows = (len(valid_plot_data) + n_cols - 1) // n_cols
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows), squeeze=False)
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows), squeeze=False, sharex=True, sharey=True)
         axes_flat = axes.flatten()
 
         for idx, (sample_id, rows) in enumerate(valid_plot_data):
@@ -234,7 +234,7 @@ def make_growth_curves(
 
         fig.tight_layout()
         combined_save_file = save_path / "all_growth_curves_subfigures.pdf"
-        fig.savefig(combined_save_file, bbox_inches="tight")
+        fig.savefig(combined_save_file, bbox_inches="tight", transparent=True)
         plt.close(fig)
 
 def plot_all_data(subtract_sterile_blank: bool = False):
